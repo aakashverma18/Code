@@ -1,5 +1,6 @@
 package com.example.todoapp
 
+import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.View
@@ -10,10 +11,19 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 class TodoAdapter(
-    private val todos: MutableList<Todo>,
+    todos: List<Todo>,
+    var accentColor: Int,
     private val onToggle: (Todo) -> Unit,
     private val onDelete: (Todo) -> Unit
 ) : RecyclerView.Adapter<TodoAdapter.ViewHolder>() {
+
+    private val display = todos.toMutableList()
+
+    fun updateTodos(newList: List<Todo>) {
+        display.clear()
+        display.addAll(newList)
+        notifyDataSetChanged()
+    }
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val checkBox: CheckBox = view.findViewById(R.id.checkBox)
@@ -28,32 +38,24 @@ class TodoAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val todo = todos[position]
+        val todo = display[position]
 
         holder.checkBox.setOnCheckedChangeListener(null)
         holder.checkBox.isChecked = todo.isDone
+        holder.checkBox.buttonTintList = ColorStateList.valueOf(accentColor)
         holder.tvTitle.text = todo.title
 
-        applyStrikethrough(holder.tvTitle, todo.isDone)
-
-        holder.checkBox.setOnCheckedChangeListener { _, _ ->
-            onToggle(todo)
-        }
-
-        holder.btnDelete.setOnClickListener {
-            onDelete(todo)
-        }
-    }
-
-    private fun applyStrikethrough(tv: TextView, done: Boolean) {
-        if (done) {
-            tv.paintFlags = tv.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-            tv.alpha = 0.45f
+        if (todo.isDone) {
+            holder.tvTitle.paintFlags = holder.tvTitle.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            holder.tvTitle.alpha = 0.45f
         } else {
-            tv.paintFlags = tv.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
-            tv.alpha = 1f
+            holder.tvTitle.paintFlags = holder.tvTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            holder.tvTitle.alpha = 1f
         }
+
+        holder.checkBox.setOnCheckedChangeListener { _, _ -> onToggle(todo) }
+        holder.btnDelete.setOnClickListener { onDelete(todo) }
     }
 
-    override fun getItemCount() = todos.size
+    override fun getItemCount() = display.size
 }

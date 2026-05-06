@@ -8,19 +8,62 @@
 
     <!-- Header -->
     <LinearLayout
+        android:id="@+id/headerLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/primary"
-        android:padding="20dp"
-        android:orientation="vertical">
+        android:paddingStart="20dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="20dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="My Todo"
             android:textColor="@color/white"
             android:textSize="22sp"
             android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btnTheme"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_preferences"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:tint="@color/white"
+            android:contentDescription="Change theme color" />
+
+    </LinearLayout>
+
+    <!-- Projects Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PROJECTS"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_hint"
+            android:letterSpacing="0.1"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvProjects"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingEnd="16dp"
+            android:clipToPadding="false" />
 
     </LinearLayout>
 
@@ -28,7 +71,10 @@
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="4dp"
         app:cardBackgroundColor="@color/white">
@@ -36,80 +82,72 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp">
 
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/tvStats"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:text="0 / 5 tasks done"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary" />
 
-                    <TextView
-                        android:id="@+id/tvStats"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0 / 5 tasks done"
-                        android:textSize="14sp"
-                        android:textColor="@color/text_secondary" />
-
-                    <TextView
-                        android:id="@+id/tvTarget"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Daily target: 5"
-                        android:textSize="12sp"
-                        android:textColor="@color/text_hint"
-                        android:layout_marginTop="2dp" />
-
-                </LinearLayout>
-
-                <!-- Percentage bubble -->
-                <FrameLayout
-                    android:layout_width="72dp"
-                    android:layout_height="72dp">
-
-                    <com.google.android.material.progressindicator.CircularProgressIndicator
-                        android:id="@+id/progressBar"
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:layout_gravity="center"
-                        app:trackThickness="8dp"
-                        app:indicatorColor="@color/primary"
-                        app:trackColor="@color/progress_track"
-                        android:max="100"
-                        android:progress="0"
-                        app:indicatorDirectionCircular="clockwise" />
-
-                    <TextView
-                        android:id="@+id/tvPercent"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:text="0%"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/primary" />
-
-                </FrameLayout>
-
-                <ImageButton
-                    android:id="@+id/btnSetTarget"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:src="@android:drawable/ic_menu_edit"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:tint="@color/text_hint"
-                    android:contentDescription="Set target"
-                    android:layout_marginStart="8dp" />
+                <TextView
+                    android:id="@+id/tvTarget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Daily target: 5"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_hint"
+                    android:layout_marginTop="2dp" />
 
             </LinearLayout>
+
+            <FrameLayout
+                android:layout_width="72dp"
+                android:layout_height="72dp">
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/progressBar"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_gravity="center"
+                    app:trackThickness="8dp"
+                    app:indicatorColor="@color/primary"
+                    app:trackColor="@color/progress_track"
+                    android:max="100"
+                    android:progress="0"
+                    app:indicatorDirectionCircular="clockwise" />
+
+                <TextView
+                    android:id="@+id/tvPercent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="0%"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary" />
+
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/btnSetTarget"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@android:drawable/ic_menu_edit"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="@color/text_hint"
+                android:contentDescription="Set target"
+                android:layout_marginStart="8dp" />
 
         </LinearLayout>
 
@@ -122,6 +160,7 @@
         android:orientation="horizontal"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:paddingTop="12dp"
         android:paddingBottom="12dp"
         android:gravity="center_vertical">
 
@@ -160,6 +199,7 @@
         android:layout_weight="1"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:paddingBottom="16dp"
         android:clipToPadding="false" />
 
 </LinearLayout>
