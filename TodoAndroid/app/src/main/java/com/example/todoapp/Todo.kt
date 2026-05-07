@@ -6,5 +6,6 @@ data class Todo(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     var isDone: Boolean = false,
-    var projectId: String? = null
+    var projectId: String? = null,
+    val priority: Int = 4
 )

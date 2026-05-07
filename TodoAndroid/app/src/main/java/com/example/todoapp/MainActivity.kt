@@ -6,15 +6,19 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
-import android.view.inputmethod.EditorInfo
+import android.view.LayoutInflater
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.progressindicator.CircularProgressIndicator
+import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,25 +29,42 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: SharedPreferences
     private val gson = Gson()
 
-    private lateinit var progressBar: CircularProgressIndicator
-    private lateinit var tvPercent: TextView
+    private lateinit var progressBar: LinearProgressIndicator
+    private lateinit var xpProgressBar: LinearProgressIndicator
     private lateinit var tvStats: TextView
-    private lateinit var tvTarget: TextView
-    private lateinit var etNewTodo: EditText
-    private lateinit var btnAdd: ImageButton
+    private lateinit var tvDailyPercent: TextView
+    private lateinit var tvLevel: TextView
+    private lateinit var tvXpLabel: TextView
+    private lateinit var tvXpProgress: TextView
+    private lateinit var tvXpToNext: TextView
+    private lateinit var tvStreakCount: TextView
+    private lateinit var tvHeaderSubtitle: TextView
     private lateinit var btnSetTarget: ImageButton
     private lateinit var btnTheme: ImageButton
     private lateinit var headerLayout: LinearLayout
+    private lateinit var fab: FloatingActionButton
 
     private var dailyTarget = 5
     private var selectedProjectId: String? = null
-    private var accentColor = Color.parseColor("#4F46E5")
+    private var accentColor = Color.parseColor("#DB4035")
+    private var userStats = UserStats()
+
+    private val LEVELS = listOf(
+        0 to "Newcomer",
+        100 to "Explorer",
+        300 to "Achiever",
+        600 to "Champion",
+        1100 to "Expert",
+        2000 to "Master",
+        3500 to "Legend"
+    )
 
     companion object {
         val THEME_COLORS = listOf(
-            "#4F46E5", "#7C3AED", "#2563EB", "#0D9488",
-            "#16A34A", "#EA580C", "#DB2777", "#DC2626"
+            "#DB4035", "#FF6D00", "#7C3AED", "#2563EB",
+            "#0D9488", "#16A34A", "#DB2777", "#4F46E5"
         )
+        private val DATE_FMT = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,18 +78,24 @@ class MainActivity : AppCompatActivity() {
         setupInput()
         applyAccentColor(accentColor)
         updateTracker()
+        updateGamification()
     }
 
     private fun bindViews() {
-        progressBar  = findViewById(R.id.progressBar)
-        tvPercent    = findViewById(R.id.tvPercent)
-        tvStats      = findViewById(R.id.tvStats)
-        tvTarget     = findViewById(R.id.tvTarget)
-        etNewTodo    = findViewById(R.id.etNewTodo)
-        btnAdd       = findViewById(R.id.btnAdd)
-        btnSetTarget = findViewById(R.id.btnSetTarget)
-        btnTheme     = findViewById(R.id.btnTheme)
-        headerLayout = findViewById(R.id.headerLayout)
+        progressBar      = findViewById(R.id.progressBar)
+        xpProgressBar    = findViewById(R.id.xpProgressBar)
+        tvStats          = findViewById(R.id.tvStats)
+        tvDailyPercent   = findViewById(R.id.tvDailyPercent)
+        tvLevel          = findViewById(R.id.tvLevel)
+        tvXpLabel        = findViewById(R.id.tvXpLabel)
+        tvXpProgress     = findViewById(R.id.tvXpProgress)
+        tvXpToNext       = findViewById(R.id.tvXpToNext)
+        tvStreakCount    = findViewById(R.id.tvStreakCount)
+        tvHeaderSubtitle = findViewById(R.id.tvHeaderSubtitle)
+        btnSetTarget     = findViewById(R.id.btnSetTarget)
+        btnTheme         = findViewById(R.id.btnTheme)
+        headerLayout     = findViewById(R.id.headerLayout)
+        fab              = findViewById(R.id.fab)
     }
 
     private fun setupProjectsRecyclerView() {
@@ -106,9 +133,20 @@ class MainActivity : AppCompatActivity() {
             accentColor = accentColor,
             onToggle = { todo ->
                 val t = todos.find { it.id == todo.id } ?: return@TodoAdapter
+                val wasDone = t.isDone
                 t.isDone = !t.isDone
+                if (!wasDone && t.isDone) {
+                    val xpGained = xpForPriority(t.priority)
+                    val prevLevel = levelFor(userStats.totalXp)
+                    userStats.totalXp += xpGained
+                    updateStreak()
+                    val newLevel = levelFor(userStats.totalXp)
+                    if (newLevel != prevLevel) showLevelUpToast(newLevel, xpGained)
+                    else Toast.makeText(this, "+$xpGained XP!", Toast.LENGTH_SHORT).show()
+                }
                 saveData()
                 updateTracker()
+                updateGamification()
                 refreshTodos()
             },
             onDelete = { todo ->
@@ -130,22 +168,33 @@ class MainActivity : AppCompatActivity() {
     private fun refreshTodos() = todoAdapter.updateTodos(getFilteredTodos())
 
     private fun setupInput() {
-        btnAdd.setOnClickListener { addTodo() }
-        etNewTodo.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) { addTodo(); true } else false
-        }
+        fab.setOnClickListener { showAddTaskDialog() }
         btnSetTarget.setOnClickListener { showSetTargetDialog() }
         btnTheme.setOnClickListener { showColorPickerDialog() }
     }
 
-    private fun addTodo() {
-        val text = etNewTodo.text.toString().trim()
-        if (text.isEmpty()) return
-        todos.add(0, Todo(title = text, projectId = selectedProjectId))
-        etNewTodo.setText("")
-        saveData()
-        refreshTodos()
-        updateTracker()
+    private fun xpForPriority(priority: Int) = when (priority) {
+        1 -> 20; 2 -> 15; 3 -> 10; else -> 5
+    }
+
+    private fun levelFor(xp: Int): String {
+        var level = LEVELS[0].second
+        for ((threshold, name) in LEVELS) {
+            if (xp >= threshold) level = name else break
+        }
+        return level
+    }
+
+    private fun updateStreak() {
+        val today = DATE_FMT.format(Date())
+        if (userStats.lastCompletedDate == today) return
+        val yesterday = DATE_FMT.format(Date(System.currentTimeMillis() - 86_400_000L))
+        userStats.streak = if (userStats.lastCompletedDate == yesterday) userStats.streak + 1 else 1
+        userStats.lastCompletedDate = today
+    }
+
+    private fun showLevelUpToast(newLevel: String, xpGained: Int) {
+        Toast.makeText(this, "Level Up! You are now $newLevel! +$xpGained XP", Toast.LENGTH_LONG).show()
     }
 
     private fun updateTracker() {
@@ -154,17 +203,47 @@ class MainActivity : AppCompatActivity() {
         val percent = if (dailyTarget > 0)
             ((done.toFloat() / dailyTarget) * 100).toInt().coerceAtMost(100) else 0
         progressBar.progress = percent
-        tvPercent.text = "$percent%"
-        tvStats.text = "$done / $dailyTarget tasks done"
-        tvTarget.text = "Daily target: $dailyTarget"
+        tvStats.text = "$done / $dailyTarget tasks done today"
+        tvDailyPercent.text = "$percent%"
+
+        val today = DATE_FMT.format(Date())
+        val dayOfWeek = SimpleDateFormat("EEEE", Locale.getDefault()).format(Date())
+        tvHeaderSubtitle.text = "$dayOfWeek · $today"
+    }
+
+    private fun updateGamification() {
+        val xp = userStats.totalXp
+        val levelName = levelFor(xp)
+
+        val nextThreshold = LEVELS.firstOrNull { it.first > xp }?.first
+        val currentThreshold = LEVELS.lastOrNull { it.first <= xp }?.first ?: 0
+
+        tvLevel.text = levelName
+        tvXpLabel.text = "$xp XP total"
+        tvStreakCount.text = "${userStats.streak} day${if (userStats.streak != 1) "s" else ""}"
+
+        if (nextThreshold != null) {
+            val rangeSize = nextThreshold - currentThreshold
+            val progress = xp - currentThreshold
+            val pct = ((progress.toFloat() / rangeSize) * 100).toInt().coerceIn(0, 100)
+            xpProgressBar.progress = pct
+            tvXpProgress.text = "Progress to next level"
+            tvXpToNext.text = "${nextThreshold - xp} XP needed"
+        } else {
+            xpProgressBar.progress = 100
+            tvXpProgress.text = "Max level reached!"
+            tvXpToNext.text = ""
+        }
     }
 
     private fun applyAccentColor(color: Int) {
         accentColor = color
         headerLayout.setBackgroundColor(color)
         progressBar.setIndicatorColor(color)
-        tvPercent.setTextColor(color)
-        btnAdd.backgroundTintList = ColorStateList.valueOf(color)
+        xpProgressBar.setIndicatorColor(color)
+        tvDailyPercent.setTextColor(color)
+        tvLevel.setTextColor(color)
+        fab.backgroundTintList = ColorStateList.valueOf(color)
         if (::projectAdapter.isInitialized) {
             projectAdapter.accentColor = color
             projectAdapter.notifyDataSetChanged()
@@ -211,6 +290,67 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Cancel", null)
             .create()
         dialog.show()
+    }
+
+    private fun showAddTaskDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_add_task, null)
+        val etName = dialogView.findViewById<EditText>(R.id.etTaskName)
+        val chipP1 = dialogView.findViewById<TextView>(R.id.chipP1)
+        val chipP2 = dialogView.findViewById<TextView>(R.id.chipP2)
+        val chipP3 = dialogView.findViewById<TextView>(R.id.chipP3)
+        val chipP4 = dialogView.findViewById<TextView>(R.id.chipP4)
+
+        var selectedPriority = 4
+        val chips = listOf(chipP1 to 1, chipP2 to 2, chipP3 to 3, chipP4 to 4)
+
+        fun refreshChips() {
+            chips.forEach { (chip, p) ->
+                chip.isSelected = (p == selectedPriority)
+                if (p == selectedPriority) {
+                    val color = priorityColor(p)
+                    val bg = GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = 6 * resources.displayMetrics.density
+                        setColor(Color.parseColor(priorityBgHex(p)))
+                        setStroke((2 * resources.displayMetrics.density).toInt(), Color.parseColor(color))
+                    }
+                    chip.background = bg
+                } else {
+                    chip.background = resources.getDrawable(R.drawable.bg_priority_chip, theme)
+                }
+            }
+        }
+        refreshChips()
+
+        chips.forEach { (chip, p) ->
+            chip.setOnClickListener {
+                selectedPriority = p
+                refreshChips()
+            }
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Add Task")
+            .setView(dialogView)
+            .setPositiveButton("Add") { _, _ ->
+                val text = etName.text.toString().trim()
+                if (text.isNotEmpty()) {
+                    todos.add(0, Todo(title = text, projectId = selectedProjectId, priority = selectedPriority))
+                    saveData()
+                    refreshTodos()
+                    updateTracker()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun priorityColor(p: Int) = when (p) {
+        1 -> "#D1453B"; 2 -> "#EB8909"; 3 -> "#246FE0"; else -> "#9E9E9E"
+    }
+
+    private fun priorityBgHex(p: Int) = when (p) {
+        1 -> "#FFF3F3"; 2 -> "#FFF8EE"; 3 -> "#EEF4FF"; else -> "#F5F5F5"
     }
 
     private fun showAddProjectDialog() {
@@ -261,12 +401,20 @@ class MainActivity : AppCompatActivity() {
             .putString("todos", gson.toJson(todos))
             .putString("projects", gson.toJson(projects))
             .putInt("daily_target", dailyTarget)
+            .putInt("total_xp", userStats.totalXp)
+            .putInt("streak", userStats.streak)
+            .putString("last_completed_date", userStats.lastCompletedDate)
             .apply()
     }
 
     private fun loadData() {
         dailyTarget = prefs.getInt("daily_target", 5)
-        accentColor = Color.parseColor(prefs.getString("accent_color", "#4F46E5") ?: "#4F46E5")
+        accentColor = Color.parseColor(prefs.getString("accent_color", "#DB4035") ?: "#DB4035")
+        userStats = UserStats(
+            totalXp = prefs.getInt("total_xp", 0),
+            streak = prefs.getInt("streak", 0),
+            lastCompletedDate = prefs.getString("last_completed_date", "") ?: ""
+        )
         prefs.getString("todos", null)?.let {
             todos.addAll(gson.fromJson(it, object : TypeToken<MutableList<Todo>>() {}.type))
         }
